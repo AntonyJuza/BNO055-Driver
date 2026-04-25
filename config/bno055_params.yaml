@@ -41,3 +41,20 @@ bno055_node:
 
     # Publish chip temperature on /imu/bno055/temperature
     publish_temperature: true
+
+    # ── Axis Remap (Mounting Orientation) ──────────────────────────────────
+    # Corrects for non-standard physical mounting of the BNO055 chip.
+    # The BNO055 has 8 predefined placement positions (P0–P7):
+    #
+    #   P0 — Chip facing up, connector at right  (POR default)
+    #   P1 — Chip facing up, connector at left   (BNO055 config default)
+    #   P2 — Chip facing up, connector at bottom
+    #   P3 — Chip facing up, connector at top
+    #   P4 — Chip facing DOWN (upside-down mounting)
+    #   P5 — Rotated 90° CW
+    #   P6 — Rotated 180°
+    #   P7 — Rotated 270° CW
+    #
+    # If your BNO055 is mounted upside-down (Roll ≈ ±180°), use "P4".
+    # If mounted normally (chip label facing up), use "P1" (default).
+    placement_axis_remap: "P4"

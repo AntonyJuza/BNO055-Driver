@@ -95,6 +95,40 @@ enum class PowerMode : uint8_t
   SUSPEND = 0x02,
 };
 
+// ─── Axis Placement Positions (P0–P7) ────────────────────────────────────────
+// These map to the 8 possible physical orientations of the BNO055 chip.
+// Reference: Bosch BNO055 Datasheet, Section 3.4 "Axis Remap"
+//
+//   P0 — Chip facing up, connector at right  (default at POR)
+//   P1 — Chip facing up, connector at left   (BNO055 default after config)
+//   P2 — Chip facing up, connector at bottom
+//   P3 — Chip facing up, connector at top
+//   P4 — Chip facing DOWN (upside-down mounting)
+//   P5 — Rotated 90° CW
+//   P6 — Rotated 180°
+//   P7 — Rotated 270° CW
+//
+enum class AxisPlacement : uint8_t
+{
+  P0 = 0,
+  P1 = 1,
+  P2 = 2,
+  P3 = 3,
+  P4 = 4,
+  P5 = 5,
+  P6 = 6,
+  P7 = 7,
+};
+
+// Axis remap register values for each placement.
+// AXIS_MAP_CONFIG (0x41) sets which physical axis maps to X/Y/Z.
+// AXIS_MAP_SIGN  (0x42) sets the sign (positive/negative) for each axis.
+struct AxisRemapConfig
+{
+  uint8_t config;  // Value for AXIS_MAP_CONFIG register (0x41)
+  uint8_t sign;    // Value for AXIS_MAP_SIGN register   (0x42)
+};
+
 // ─── Calibration Status ──────────────────────────────────────────────────────
 struct CalibrationStatus
 {
@@ -126,8 +160,10 @@ public:
 
   /// @brief Initialize the sensor: verify chip ID, reset, configure units, set mode.
   /// @param mode Operation mode (default NDOF for full fusion)
+  /// @param placement Axis placement position (default P1 — BNO055 chip default)
   /// @return true on success
-  bool init(OperationMode mode = OperationMode::NDOF);
+  bool init(OperationMode mode = OperationMode::NDOF,
+            AxisPlacement placement = AxisPlacement::P1);
 
   /// @brief Check if the I2C bus is open and chip ID is valid.
   bool isReady() const;
@@ -135,6 +171,12 @@ public:
   /// @brief Set the operation mode.
   /// @note Must go through CONFIG mode first (handled internally).
   bool setOperationMode(OperationMode mode);
+
+  /// @brief Configure axis remap for non-standard sensor mounting.
+  /// @param placement One of P0–P7 physical placement positions.
+  /// @return true on success
+  /// @note Must be called while in CONFIG mode (handled internally).
+  bool setAxisRemap(AxisPlacement placement);
 
   // ─── Data reading methods ──────────────────────────────────────────────
 

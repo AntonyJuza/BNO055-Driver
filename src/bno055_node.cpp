@@ -48,10 +48,13 @@ void BNO055Node::declareParameters()
   publish_diagnostics_ = declare_parameter<bool>("publish_diagnostics", true);
   publish_temperature_ = declare_parameter<bool>("publish_temperature", true);
 
+  // Axis remap for non-standard mounting
+  placement_axis_remap_str_ = declare_parameter<std::string>("placement_axis_remap", "P1");
+
   RCLCPP_INFO(get_logger(),
-    "Parameters: bus=%s addr=0x%02X frame=%s rate=%.1f Hz mode=%s",
+    "Parameters: bus=%s addr=0x%02X frame=%s rate=%.1f Hz mode=%s placement=%s",
     i2c_bus_.c_str(), i2c_address_, frame_id_.c_str(),
-    update_rate_, operation_mode_str_.c_str());
+    update_rate_, operation_mode_str_.c_str(), placement_axis_remap_str_.c_str());
 }
 
 // ─── Publisher Setup ─────────────────────────────────────────────────────────
@@ -92,10 +95,28 @@ void BNO055Node::initSensor()
       operation_mode_str_.c_str());
   }
 
+  // Parse axis placement string to enum
+  AxisPlacement placement = AxisPlacement::P1;  // Default: BNO055 standard
+  if (placement_axis_remap_str_.size() == 2 &&
+      (placement_axis_remap_str_[0] == 'P' || placement_axis_remap_str_[0] == 'p')) {
+    int p = placement_axis_remap_str_[1] - '0';
+    if (p >= 0 && p <= 7) {
+      placement = static_cast<AxisPlacement>(p);
+    } else {
+      RCLCPP_WARN(get_logger(),
+        "Invalid placement_axis_remap '%s' (must be P0-P7), defaulting to P1",
+        placement_axis_remap_str_.c_str());
+    }
+  } else {
+    RCLCPP_WARN(get_logger(),
+      "Invalid placement_axis_remap format '%s' (expected P0-P7), defaulting to P1",
+      placement_axis_remap_str_.c_str());
+  }
+
   // Create and initialize the I2C driver
   imu_ = std::make_unique<BNO055I2C>(i2c_bus_, static_cast<uint8_t>(i2c_address_));
 
-  if (!imu_->init(mode)) {
+  if (!imu_->init(mode, placement)) {
     RCLCPP_FATAL(get_logger(),
       "Failed to initialize BNO055 on %s @ 0x%02X. "
       "Check wiring, I2C bus, and run: i2cdetect -y 1",
@@ -104,8 +125,8 @@ void BNO055Node::initSensor()
     return;
   }
 
-  RCLCPP_INFO(get_logger(), "BNO055 initialized successfully in %s mode",
-    operation_mode_str_.c_str());
+  RCLCPP_INFO(get_logger(), "BNO055 initialized successfully in %s mode (placement %s)",
+    operation_mode_str_.c_str(), placement_axis_remap_str_.c_str());
 }
 
 // ─── Timer Setup ─────────────────────────────────────────────────────────────

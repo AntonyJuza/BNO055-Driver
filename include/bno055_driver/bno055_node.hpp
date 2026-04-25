@@ -56,6 +56,7 @@ private:
   std::string operation_mode_str_;
   bool publish_diagnostics_;
   bool publish_temperature_;
+  std::string placement_axis_remap_str_;
 
   // ─── Covariance values (diagonal) ──────────────────────────────────────
   // Based on BNO055 datasheet noise specifications:
