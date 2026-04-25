@@ -11,7 +11,8 @@ Built for **Raspberry Pi 4 Model B** and designed for **SLAM mapping** with `rob
 - **ROS2 standard messages** — publishes `sensor_msgs/Imu` with properly populated covariance matrices
 - **Calibration diagnostics** — reports sys/gyro/accel/mag calibration levels (0–3) at 1 Hz
 - **Temperature monitoring** — chip temperature published on a dedicated topic
-- **Configurable** — I2C bus, address, polling rate, operation mode, and frame ID all set via YAML parameters
+- **Configurable** — I2C bus, address, polling rate, operation mode, frame ID, and mounting axis remap all set via YAML parameters
+- **Hardware Axis Remap** — supports all 8 standard mounting positions (P0-P7) directly at the hardware scale, solving upside-down or rotated mountings
 - **Clean architecture** — hardware I2C layer fully separated from ROS2 logic
 - **No external dependencies** — uses Linux `i2c-dev` kernel interface directly; no vendor SDKs needed
 
@@ -34,6 +35,7 @@ Built for **Raspberry Pi 4 Model B** and designed for **SLAM mapping** with `rob
 | `operation_mode` | `NDOF` | Fusion mode: `NDOF`, `NDOF_FMC_OFF`, or `IMU` |
 | `publish_diagnostics` | `true` | Enable calibration status topic |
 | `publish_temperature` | `true` | Enable temperature topic |
+| `placement_axis_remap`| `P1` | Hardware axis remap for mounting orientation (P0-P7) |
 
 ---
 
@@ -75,6 +77,23 @@ dtoverlay=i2c-gpio,bus=3,i2c_gpio_sda=2,i2c_gpio_scl=3
 ```
 
 Reboot and update the parameter to `i2c_bus: "/dev/i2c-3"`.
+
+### Axis Remapping (Mounting Orientation)
+
+If your BNO055 is not mounted completely flat with the chip facing up and the connector to the left, you'll need to configure the axis remap parameter so the fused data rotates properly at a hardware level.
+
+| Position | Description |
+|---|---|
+| **P0** | Chip facing up, connector right (Default at POR) |
+| **P1** | Chip facing up, connector left (**BNO055 default**) |
+| **P2** | Chip facing up, connector down |
+| **P3** | Chip facing up, connector up |
+| **P4** | Chip facing DOWN (**upside down**) |
+| **P5** | Rotated 90° CW |
+| **P6** | Rotated 180° |
+| **P7** | Rotated 270° CW |
+
+In `bno055_params.yaml`, set `placement_axis_remap: "P4"` (for upside down, for example). This writes directly to the BNO055's `AXIS_MAP_CONFIG` and `AXIS_MAP_SIGN` registers, efficiently fixing axes before fusion.
 
 ---
 
