@@ -1,0 +1,43 @@
+# BNO055 IMU Driver — Default Parameters
+# For Raspberry Pi 4 Model B with BNO055 connected to I2C-1
+#
+# Usage:
+#   ros2 launch bno055_driver bno055.launch.py
+#   ros2 run bno055_driver bno055_node --ros-args --params-file config/bno055_params.yaml
+
+bno055_node:
+  ros__parameters:
+
+    # ── I2C Configuration ──────────────────────────────────────────────────
+    # Bus: /dev/i2c-1 is the default hardware I2C on RPi4 (GPIO 2=SDA, 3=SCL)
+    # If using software I2C overlay (dtoverlay=i2c-gpio), use /dev/i2c-3
+    i2c_bus: "/dev/i2c-1"
+
+    # Address: 0x28 (ADR pin LOW/floating) or 0x29 (ADR pin HIGH)
+    # Verified with: i2cdetect -y 1
+    i2c_address: 0x28
+
+    # ── ROS2 Configuration ─────────────────────────────────────────────────
+    # TF frame ID — must match the URDF link name
+    frame_id: "imu_link"
+
+    # Polling rate in Hz
+    # 50 Hz is a good balance for RPi4 CPU load and SLAM accuracy
+    # Can increase to 100 Hz if CPU allows, or reduce to 30 Hz if needed
+    update_rate: 50.0
+
+    # ── Sensor Configuration ───────────────────────────────────────────────
+    # Operation modes:
+    #   "NDOF"         - Full 9-axis fusion (accel+gyro+mag) — best for SLAM
+    #   "NDOF_FMC_OFF" - Same as NDOF but without fast magnetometer calibration
+    #   "IMU"          - Accel+Gyro fusion only (no magnetometer, no absolute heading)
+    #
+    # NDOF is recommended for SLAM because it provides absolute yaw via magnetometer
+    operation_mode: "NDOF"
+
+    # ── Feature Toggles ────────────────────────────────────────────────────
+    # Publish calibration status on /imu/bno055/status (1 Hz)
+    publish_diagnostics: true
+
+    # Publish chip temperature on /imu/bno055/temperature
+    publish_temperature: true
