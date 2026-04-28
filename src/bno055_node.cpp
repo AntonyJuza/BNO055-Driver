@@ -248,7 +248,15 @@ void BNO055Node::diagnosticsTimerCallback()
     status.message = "System error code: " + std::to_string(sys_error);
   } else {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
-    status.message = "Calibration incomplete — rotate sensor in figure-8";
+    if (calib.mag < 3) {
+      status.message = "Calibration incomplete — rotate sensor in figure-8 for magnetometer";
+    } else if (calib.gyro < 3) {
+      status.message = "Calibration incomplete — hold sensor still for gyroscope";
+    } else if (calib.sys < 3) {
+      status.message = "Sensors ready — waiting for fusion engine (sys) to converge";
+    } else {
+      status.message = "Calibration incomplete";
+    }
   }
 
   // Add calibration values
