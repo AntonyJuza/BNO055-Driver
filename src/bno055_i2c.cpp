@@ -153,18 +153,6 @@ bool BNO055I2C::init(OperationMode mode, AxisPlacement placement)
   }
   std::this_thread::sleep_for(std::chrono::milliseconds(10));
 
-  // Enable external crystal oscillator for better fusion stability.
-  // Without this, sys calibration score fluctuates (0/2) even when all
-  // sub-sensors are fully calibrated, because the internal RC oscillator
-  // is insufficiently stable for the fusion engine.
-  // SYS_TRIGGER (0x3F) bit 7 = 1 selects external crystal.
-  // Must be written while in CONFIG mode.
-  if (!writeRegister(reg::SYS_TRIGGER, 0x80)) {
-    std::cerr << "[BNO055] Failed to enable external crystal" << std::endl;
-    return false;
-  }
-  std::this_thread::sleep_for(std::chrono::milliseconds(650));  // crystal stabilisation
-
   // Apply axis remap if not the default P1
   if (placement != AxisPlacement::P1) {
     if (!setAxisRemap(placement)) {
@@ -181,6 +169,19 @@ bool BNO055I2C::init(OperationMode mode, AxisPlacement placement)
     std::cerr << "[BNO055] Failed to set operation mode" << std::endl;
     return false;
   }
+
+  // Enable external crystal oscillator AFTER entering the final operating mode.
+  // The BNO055 resets SYS_TRIGGER on every mode switch, so this must come last.
+  // Bit 7 of SYS_TRIGGER (0x3F) = 1 selects the external 32.768 kHz crystal.
+  // Without this, sys calibration bounces between 0 and 2 indefinitely because
+  // the internal RC oscillator is not stable enough for the fusion engine.
+  // Per BNO055 datasheet section 3.5.2: write crystal enable in operating mode.
+  if (!writeRegister(reg::SYS_TRIGGER, 0x80)) {
+    std::cerr << "[BNO055] Failed to enable external crystal" << std::endl;
+    return false;
+  }
+  std::this_thread::sleep_for(std::chrono::milliseconds(650));  // crystal stabilisation
+  std::cout << "[BNO055] External crystal enabled" << std::endl;
 
   ready_ = true;
   std::cout << "[BNO055] Initialized successfully on " << bus_path_

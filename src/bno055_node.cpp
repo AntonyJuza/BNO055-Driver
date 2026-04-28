@@ -240,7 +240,10 @@ void BNO055Node::diagnosticsTimerCallback()
   status.hardware_id = "bno055_i2c";
 
   // Determine overall status level
-  if (calib.isFullyCalibrated() && sys_error == 0) {
+  const bool fullyCalibrated = (operation_mode_str_ == "IMU")
+    ? calib.isFullyCalibratedIMU()
+    : calib.isFullyCalibrated();
+  if (fullyCalibrated && sys_error == 0) {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
     status.message = "Fully calibrated, running normally";
   } else if (sys_error != 0) {
@@ -248,14 +251,25 @@ void BNO055Node::diagnosticsTimerCallback()
     status.message = "System error code: " + std::to_string(sys_error);
   } else {
     status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
-    if (calib.mag < 3) {
-      status.message = "Calibration incomplete — rotate sensor in figure-8 for magnetometer";
-    } else if (calib.gyro < 3) {
-      status.message = "Calibration incomplete — hold sensor still for gyroscope";
-    } else if (calib.sys < 3) {
-      status.message = "Sensors ready — waiting for fusion engine (sys) to converge";
+    if (operation_mode_str_ == "IMU") {
+      // IMU mode: no magnetometer — only gyro+accel+sys matter
+      if (calib.gyro < 3) {
+        status.message = "Calibration incomplete — hold sensor still for gyroscope";
+      } else if (calib.sys < 3) {
+        status.message = "Gyro ready — waiting for fusion engine (sys) to converge, hold still";
+      } else {
+        status.message = "Calibration incomplete";
+      }
     } else {
-      status.message = "Calibration incomplete";
+      if (calib.mag < 3) {
+        status.message = "Calibration incomplete — rotate sensor in figure-8 for magnetometer";
+      } else if (calib.gyro < 3) {
+        status.message = "Calibration incomplete — hold sensor still for gyroscope";
+      } else if (calib.sys < 3) {
+        status.message = "Sensors ready — waiting for fusion engine (sys) to converge";
+      } else {
+        status.message = "Calibration incomplete";
+      }
     }
   }
 
@@ -278,11 +292,18 @@ void BNO055Node::diagnosticsTimerCallback()
   diag_pub_->publish(diag_msg);
 
   // Log calibration status at INFO level when not fully calibrated
-  if (!calib.isFullyCalibrated()) {
-    RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
-      "Calibration: sys=%d gyro=%d accel=%d mag=%d — "
-      "rotate sensor in figure-8 pattern for magnetometer",
-      calib.sys, calib.gyro, calib.accel, calib.mag);
+  if (!fullyCalibrated) {
+    if (operation_mode_str_ == "IMU") {
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
+        "Calibration: sys=%d gyro=%d accel=%d (IMU mode — magnetometer not used)",
+        calib.sys, calib.gyro, calib.accel);
+    } else {
+      RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 10000,
+        "Calibration: sys=%d gyro=%d accel=%d mag=%d — %s",
+        calib.sys, calib.gyro, calib.accel, calib.mag,
+        calib.mag < 3 ? "rotate sensor in figure-8 for magnetometer" :
+        calib.sys < 3 ? "hold still, waiting for fusion engine" : "calibrating");
+    }
   }
 }
 
