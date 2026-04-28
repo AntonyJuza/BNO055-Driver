@@ -141,6 +141,12 @@ struct CalibrationStatus
   {
     return sys == 3 && gyro == 3 && accel == 3 && mag == 3;
   }
+
+  /// IMU mode doesn't use the magnetometer, so ignore mag calibration.
+  bool isFullyCalibratedIMU() const
+  {
+    return sys == 3 && gyro == 3 && accel == 3;
+  }
 };
 
 // ─── BNO055 I2C Driver Class ─────────────────────────────────────────────────
