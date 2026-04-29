@@ -275,10 +275,33 @@ std::array<double, 3> BNO055I2C::readAccelerometer()
   };
 }
 
+std::array<double, 3> BNO055I2C::readMagnetometer()
+{
+  // Magnetometer: 1 LSB = 1/16 µT
+  auto raw = readVector3(reg::MAG_DATA_X_LSB);
+  return {
+    static_cast<double>(raw[0]) / 16.0,
+    static_cast<double>(raw[1]) / 16.0,
+    static_cast<double>(raw[2]) / 16.0
+  };
+}
+
 std::array<double, 3> BNO055I2C::readGyroscope()
 {
   // With UNIT_SEL bit 1 set (rad/s): 1 LSB = 1/900 rad/s
   auto raw = readVector3(reg::GYR_DATA_X_LSB);
+  return {
+    static_cast<double>(raw[0]) / 900.0,
+    static_cast<double>(raw[1]) / 900.0,
+    static_cast<double>(raw[2]) / 900.0
+  };
+}
+
+std::array<double, 3> BNO055I2C::readEuler()
+{
+  // With UNIT_SEL bit 2 set (radians): 1 LSB = 1/900 rad
+  // Returns {heading, roll, pitch}
+  auto raw = readVector3(reg::EUL_DATA_H_LSB);
   return {
     static_cast<double>(raw[0]) / 900.0,
     static_cast<double>(raw[1]) / 900.0,

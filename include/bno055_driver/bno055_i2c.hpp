@@ -27,8 +27,14 @@ namespace reg
   // Accelerometer data (m/s² when in fusion mode, 1 LSB = 0.01 m/s²)
   constexpr uint8_t ACC_DATA_X_LSB = 0x08;
 
+  // Magnetometer data (1 LSB = 1/16 µT)
+  constexpr uint8_t MAG_DATA_X_LSB = 0x0E;
+
   // Gyroscope data (1 LSB = 1/16 °/s in fusion mode)
   constexpr uint8_t GYR_DATA_X_LSB = 0x14;
+
+  // Euler angles (1 LSB = 1/16 ° or 1/900 rad depending on UNIT_SEL)
+  constexpr uint8_t EUL_DATA_H_LSB = 0x1A;
 
   // Quaternion data (1 LSB = 1/(2^14) = 1/16384)
   constexpr uint8_t QUA_DATA_W_LSB = 0x20;
@@ -70,22 +76,95 @@ namespace reg
 }  // namespace reg
 
 // ─── Operation Modes ─────────────────────────────────────────────────────────
+// Reference: Bosch BNO055 Datasheet BST-BNO055-DS000-14, Section 3.3
+//
+// Non-fusion modes (raw sensor data only — no quaternion/linear-accel/gravity):
+//   CONFIG, ACCONLY, MAGONLY, GYROONLY, ACCMAG, ACCGYRO, MAGGYRO, AMG
+//
+// Fusion modes (on-chip sensor fusion — provides quaternion, euler, linear-accel, gravity):
+//   IMU (IMUPLUS), COMPASS, M4G, NDOF_FMC_OFF, NDOF
+//
 enum class OperationMode : uint8_t
 {
   CONFIG       = 0x00,
-  ACCONLY      = 0x01,
-  MAGONLY      = 0x02,
-  GYROONLY     = 0x03,
-  ACCMAG       = 0x04,
-  ACCGYRO      = 0x05,
-  MAGGYRO      = 0x06,
-  AMG          = 0x07,
-  IMU          = 0x08,  // Accel + Gyro fusion (no mag)
-  COMPASS      = 0x09,
-  M4G          = 0x0A,
-  NDOF_FMC_OFF = 0x0B,
+  // ─── Non-fusion modes ──────────────────────────────────────────────────
+  ACCONLY      = 0x01,  // Accelerometer only
+  MAGONLY      = 0x02,  // Magnetometer only
+  GYROONLY     = 0x03,  // Gyroscope only
+  ACCMAG       = 0x04,  // Accelerometer + Magnetometer
+  ACCGYRO      = 0x05,  // Accelerometer + Gyroscope
+  MAGGYRO      = 0x06,  // Magnetometer + Gyroscope
+  AMG          = 0x07,  // All three sensors, no fusion
+  // ─── Fusion modes ─────────────────────────────────────────────────────
+  IMU          = 0x08,  // Accel + Gyro relative fusion (no mag) — a.k.a. IMUPLUS
+  COMPASS      = 0x09,  // Accel + Mag fusion (heading)
+  M4G          = 0x0A,  // Mag for Gyro: gyro replaced by mag for orientation
+  NDOF_FMC_OFF = 0x0B,  // Full 9-axis fusion without fast mag calibration
   NDOF         = 0x0C,  // Full 9-axis fusion (recommended for SLAM)
 };
+
+/// @brief Check whether a mode is a fusion mode.
+/// Fusion modes run the BNO055 on-chip sensor fusion engine and produce
+/// quaternion, Euler angles, linear acceleration, and gravity vector outputs.
+inline bool isFusionMode(OperationMode mode)
+{
+  return static_cast<uint8_t>(mode) >= static_cast<uint8_t>(OperationMode::IMU);
+}
+
+/// @brief Check whether a mode uses the magnetometer.
+inline bool usesMagnetometer(OperationMode mode)
+{
+  switch (mode) {
+    case OperationMode::MAGONLY:
+    case OperationMode::ACCMAG:
+    case OperationMode::MAGGYRO:
+    case OperationMode::AMG:
+    case OperationMode::COMPASS:
+    case OperationMode::M4G:
+    case OperationMode::NDOF_FMC_OFF:
+    case OperationMode::NDOF:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// @brief Check whether a mode uses the gyroscope.
+/// Note: M4G uses magnetometer to replace gyro, so gyro is NOT used in M4G.
+inline bool usesGyroscope(OperationMode mode)
+{
+  switch (mode) {
+    case OperationMode::GYROONLY:
+    case OperationMode::ACCGYRO:
+    case OperationMode::MAGGYRO:
+    case OperationMode::AMG:
+    case OperationMode::IMU:
+    case OperationMode::NDOF_FMC_OFF:
+    case OperationMode::NDOF:
+      return true;
+    default:
+      return false;
+  }
+}
+
+/// @brief Check whether a mode uses the accelerometer.
+inline bool usesAccelerometer(OperationMode mode)
+{
+  switch (mode) {
+    case OperationMode::ACCONLY:
+    case OperationMode::ACCMAG:
+    case OperationMode::ACCGYRO:
+    case OperationMode::AMG:
+    case OperationMode::IMU:
+    case OperationMode::COMPASS:
+    case OperationMode::M4G:
+    case OperationMode::NDOF_FMC_OFF:
+    case OperationMode::NDOF:
+      return true;
+    default:
+      return false;
+  }
+}
 
 // ─── Power Modes ─────────────────────────────────────────────────────────────
 enum class PowerMode : uint8_t
@@ -188,22 +267,37 @@ public:
 
   /// @brief Read accelerometer data.
   /// @return {ax, ay, az} in m/s²
+  /// @note Available in all modes that use the accelerometer.
   std::array<double, 3> readAccelerometer();
+
+  /// @brief Read magnetometer data.
+  /// @return {mx, my, mz} in µT (microtesla)
+  /// @note Available in all modes that use the magnetometer.
+  std::array<double, 3> readMagnetometer();
 
   /// @brief Read gyroscope data.
   /// @return {gx, gy, gz} in rad/s
+  /// @note Available in all modes that use the gyroscope.
   std::array<double, 3> readGyroscope();
+
+  /// @brief Read Euler angles from fusion engine.
+  /// @return {heading, roll, pitch} in radians (when UNIT_SEL configured for radians)
+  /// @note Only available in fusion modes.
+  std::array<double, 3> readEuler();
 
   /// @brief Read quaternion orientation from fusion engine.
   /// @return {w, x, y, z} normalized quaternion
+  /// @note Only available in fusion modes.
   std::array<double, 4> readQuaternion();
 
   /// @brief Read linear acceleration (gravity removed).
   /// @return {ax, ay, az} in m/s²
+  /// @note Only available in fusion modes.
   std::array<double, 3> readLinearAcceleration();
 
   /// @brief Read gravity vector.
   /// @return {gx, gy, gz} in m/s²
+  /// @note Only available in fusion modes.
   std::array<double, 3> readGravityVector();
 
   /// @brief Read chip temperature.

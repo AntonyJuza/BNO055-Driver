@@ -27,12 +27,35 @@ bno055_node:
     update_rate: 50.0
 
     # ── Sensor Configuration ───────────────────────────────────────────────
-    # Operation modes:
-    #   "NDOF"         - Full 9-axis fusion (accel+gyro+mag) — best for SLAM
-    #   "NDOF_FMC_OFF" - Same as NDOF but without fast magnetometer calibration
-    #   "IMU"          - Accel+Gyro fusion only (no magnetometer, no absolute heading)
+    # Operation modes (BNO055 Datasheet Section 3.3):
     #
-    # NDOF is recommended for SLAM because it provides absolute yaw via magnetometer
+    # ┌────────────────────────────────────────────────────────────────────────┐
+    # │  NON-FUSION MODES  (raw sensor data, no orientation output)           │
+    # ├──────────────┬─────────────────────────────────────────────────────────┤
+    # │ "ACCONLY"     │ Accelerometer only                                    │
+    # │ "MAGONLY"     │ Magnetometer only                                     │
+    # │ "GYROONLY"    │ Gyroscope only                                        │
+    # │ "ACCMAG"     │ Accelerometer + Magnetometer                          │
+    # │ "ACCGYRO"    │ Accelerometer + Gyroscope                             │
+    # │ "MAGGYRO"    │ Magnetometer + Gyroscope                              │
+    # │ "AMG"        │ All three sensors, no fusion                           │
+    # ├────────────────────────────────────────────────────────────────────────┤
+    # │  FUSION MODES  (on-chip sensor fusion: quaternion, euler, lin-accel)  │
+    # ├──────────────┬─────────────────────────────────────────────────────────┤
+    # │ "IMU"        │ Accel + Gyro relative fusion (no magnetometer)         │
+    # │ "IMUPLUS"    │ Alias for "IMU" — same register value (0x08)           │
+    # │ "COMPASS"    │ Accel + Mag fusion (heading only)                      │
+    # │ "M4G"        │ Mag for Gyro — uses mag instead of gyro for rotation   │
+    # │ "NDOF_FMC_OFF"│ Full 9-axis fusion, fast mag calibration disabled     │
+    # │ "NDOF"       │ Full 9-axis fusion — best for SLAM                     │
+    # └──────────────┴─────────────────────────────────────────────────────────┘
+    #
+    # Recommendations:
+    #   SLAM/Navigation      → "NDOF"    (absolute heading via magnetometer)
+    #   Indoor/no-mag env    → "IMU"     (relative orientation, no mag interference)
+    #   Raw data logging     → "AMG"     (all sensors, no fusion overhead)
+    #   Compass heading only → "COMPASS" (tilt-compensated heading)
+    #
     operation_mode: "NDOF"
 
     # ── Feature Toggles ────────────────────────────────────────────────────
@@ -41,6 +64,10 @@ bno055_node:
 
     # Publish chip temperature on /imu/bno055/temperature
     publish_temperature: true
+
+    # Publish magnetometer data on /imu/bno055/mag
+    # Only publishes when the selected mode uses the magnetometer
+    publish_magnetometer: true
 
     # ── Axis Remap (Mounting Orientation) ──────────────────────────────────
     # Corrects for non-standard physical mounting of the BNO055 chip.
